@@ -64,9 +64,6 @@ The executable will be created in the `dist` directory.
 ## Requirements
 See `requirements.txt` for a list of dependencies.
 
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## Acknowledgments
 * PyQt6 for the GUI framework
 * Qt for the design inspiration

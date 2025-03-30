@@ -18,7 +18,7 @@ Make sure you have Python 3.6+ installed on your system.
 ### Setup
 Clone the repository:
 ```bash
-git clone https://github.com/yourusername/quiro.git
+git clone https://github.com/TheShlyukov/Quiro
 cd quiro
 ```
 

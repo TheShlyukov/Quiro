@@ -1,4 +1,4 @@
-![alt text](https://github.com/[username]/[reponame]/2025-03-30_11-12-27.png?raw=true)
+![alt text](https://github.com/TheShlyukov/Quiro/blob/main/2025-03-30_11-12-27.png)
 
 # Quiro Audio Player
 Quiro is a modern, lightweight audio player built with PyQt6. It features a clean, dark-themed interface and supports various audio formats.

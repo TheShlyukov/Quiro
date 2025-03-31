@@ -2,17 +2,73 @@ import sys
 import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QPushButton, QSlider, QLabel, 
-                            QFileDialog, QStyle, QListWidget, QSplitter)
-from PyQt6.QtCore import Qt, QUrl, QDir
+                            QFileDialog, QStyle, QListWidget, QSplitter,
+                            QProgressDialog, QStatusBar)
+from PyQt6.QtCore import Qt, QUrl, QDir, QThread, pyqtSignal, QRunnable, QThreadPool, QObject, QTimer
 from PyQt6.QtGui import QIcon
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
+
+# Worker signal class for thread communication
+class WorkerSignals(QObject):
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
+    result = pyqtSignal(object)
+    progress = pyqtSignal(int)
+
+# Worker class for background tasks
+class Worker(QRunnable):
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = WorkerSignals()
+
+    def run(self):
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+            self.signals.result.emit(result)
+        except Exception as e:
+            self.signals.error.emit(str(e))
+        finally:
+            self.signals.finished.emit()
+
+# File processor worker with progress updates
+class FileProcessorWorker(QRunnable):
+    def __init__(self, file_paths):
+        super(FileProcessorWorker, self).__init__()
+        self.file_paths = file_paths
+        self.signals = WorkerSignals()
+
+    def run(self):
+        try:
+            processed_files = []
+            for i, file_path in enumerate(self.file_paths):
+                file_info = QUrl.fromLocalFile(file_path)
+                file_name = os.path.basename(file_path)
+                
+                processed_files.append({"url": file_info, "name": file_name, "path": file_path})
+                
+                # Emit progress signal for UI updates
+                self.signals.progress.emit(i + 1)
+            
+            self.signals.result.emit(processed_files)
+        except Exception as e:
+            self.signals.error.emit(str(e))
+        finally:
+            self.signals.finished.emit()
 
 class MediaPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
         
         self.setWindowTitle("Quiro")
+        self.setWindowIcon(QIcon("Quiro.png"))
         self.setGeometry(100, 100, 800, 600)
+        self.setMinimumSize(800, 600)
+        
+        # Initialize thread pool for background tasks
+        self.threadpool = QThreadPool()
         
         # Create media player and audio output
         self.media_player = QMediaPlayer()
@@ -157,6 +213,10 @@ class MediaPlayer(QMainWindow):
         # Add splitter to main layout
         main_layout.addWidget(splitter)
         
+        # Add status bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        
         # Connect media player signals
         self.media_player.positionChanged.connect(self.position_changed)
         self.media_player.durationChanged.connect(self.duration_changed)
@@ -170,212 +230,36 @@ class MediaPlayer(QMainWindow):
         self.playlist = []
         self.current_track_index = -1
         
+        # Progress dialog for loading operations
+        self.progress_dialog = None
+        
+        # Timer for status messages
+        self.status_timer = QTimer()
+        self.status_timer.setSingleShot(True)
+        self.status_timer.timeout.connect(self.clear_status)
+        
         # Load stylesheet
         self.load_stylesheet()
 
     def load_stylesheet(self):
-        self.style_sheet = """/* Main window styling */
-        QMainWindow {
-            background-color: #2b2b2b;
-        }
+        try:
+            # Try to load stylesheet from external file
+            with open("style.qss", "r") as f:
+                self.style_sheet = f.read()
+                self.setStyleSheet(self.style_sheet)
+        except FileNotFoundError:
+            # If file not found, use default stylesheet
+            print("Style file not found, Using \"Null\" style")
 
-        /* Buttons styling */
-        QPushButton {
-            background-color: #3a3a3a;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
-            min-width: 40px;
-            min-height: 40px;
-        }
 
-        QPushButton:hover {
-            background-color: #4a4a4a;
-        }
-
-        QPushButton:pressed {
-            background-color: #555555;
-        }
-
-        #openButton {
-            background-color: #0078d7;
-            font-weight: bold;
-        }
-
-        #openButton:hover {
-            background-color: #0086f0;
-        }
-
-        #clearButton {
-            background-color: #d73a49;
-            font-weight: bold;
-            min-height: 30px;
-        }
-
-        #clearButton:hover {
-            background-color: #e25563;
-        }
-
-        #playButton, #stopButton, #volumeButton {
-            background-color: #3a3a3a;
-            border-radius: 20px;
-        }
-
-        /* Slider styling */
-        QSlider {
-            height: 20px;
-        }
-
-        QSlider::groove:horizontal {
-            border: 1px solid #999999;
-            height: 8px;
-            background: #4a4a4a;
-            margin: 2px 0;
-            border-radius: 4px;
-        }
-
-        QSlider::handle:horizontal {
-            background: #0078d7;
-            border: 1px solid #0078d7;
-            width: 16px;
-            margin: -4px 0;
-            border-radius: 8px;
-        }
-
-        QSlider::handle:horizontal:hover {
-            background: #0086f0;
-            border: 1px solid #0086f0;
-        }
-
-        #positionSlider::groove:horizontal {
-            background: #333333;
-        }
-
-        #positionSlider::sub-page:horizontal {
-            background: #0078d7;
-            border-radius: 4px;
-        }
-
-        #volumeSlider::groove:horizontal {
-            background: #333333;
-        }
-
-        #volumeSlider::sub-page:horizontal {
-            background: #00a651;
-            border-radius: 4px;
-        }
-
-        /* Time labels */
-        #timeLabel {
-            color: white;
-            font-family: 'Arial';
-            font-size: 12px;
-            padding: 0 5px;
-        }
-
-        /* Now playing label */
-        #nowPlayingLabel {
-            color: white;
-            font-family: 'Arial';
-            font-size: 14px;
-            font-weight: bold;
-            padding: 10px;
-        }
-
-        /* Playlist styling */
-        #playlistWidget {
-            background-color: #333333;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            alternate-background-color: #3a3a3a;
-        }
-
-        #playlistWidget::item {
-            padding: 5px;
-            border-radius: 2px;
-        }
-
-        #playlistWidget::item:selected {
-            background-color: #0078d7;
-            color: white;
-        }
-
-        #playlistWidget::item:hover {
-            background-color: #444444;
-        }
-
-        /* Splitter styling */
-        QSplitter::handle {
-            background-color: #444444;
-            height: 2px;
-        }
-
-        QSplitter::handle:hover {
-            background-color: #0078d7;
-        }
-
-        /* Scrollbar styling */
-        QScrollBar:vertical {
-            border: none;
-            background: #2b2b2b;
-            width: 10px;
-            margin: 0px;
-        }
-
-        QScrollBar::handle:vertical {
-            background: #555555;
-            min-height: 20px;
-            border-radius: 5px;
-        }
-
-        QScrollBar::handle:vertical:hover {
-            background: #666666;
-        }
-
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-            height: 0px;
-        }
-
-        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-            background: none;
-        }
-
-        /* File dialog styling */
-        QFileDialog {
-            background-color: #2b2b2b;
-            color: white;
-        }
-
-        QFileDialog QListView, QFileDialog QTreeView {
-            background-color: #333333;
-            color: white;
-        }
-
-        QFileDialog QComboBox, QFileDialog QLineEdit {
-            background-color: #3a3a3a;
-            color: white;
-            border: 1px solid #555555;
-            border-radius: 3px;
-            padding: 5px;
-        }
-
-        /* Message box styling */
-        QMessageBox {
-            background-color: #2b2b2b;
-            color: white;
-        }
-
-        /* Tooltip styling */
-        QToolTip {
-            background-color: #2b2b2b;
-            color: white;
-            border: 1px solid #555555;
-            padding: 5px;
-        }
-        """
-        self.setStyleSheet(self.style_sheet)
+    def show_status_message(self, message, timeout=3000):
+        """Show a message in the status bar for a specified time"""
+        self.status_bar.showMessage(message)
+        self.status_timer.start(timeout)
+    
+    def clear_status(self):
+        """Clear the status bar message"""
+        self.status_bar.clearMessage()
 
     def open_file(self):
         file_dialog = QFileDialog(self)
@@ -394,9 +278,24 @@ class MediaPlayer(QMainWindow):
         
         if folder_dialog.exec():
             folder_path = folder_dialog.selectedFiles()[0]
-            self.add_folder_to_playlist(folder_path)
+            
+            # Show status message instead of progress dialog
+            self.show_status_message(f"Scanning folder: {os.path.basename(folder_path)}...")
+            
+            # Create worker for folder scanning
+            worker = Worker(self.scan_folder_for_audio, folder_path)
+            worker.signals.result.connect(self.process_folder_scan_result)
+            worker.signals.finished.connect(self.folder_scan_finished)
+            worker.signals.error.connect(self.handle_worker_error)
+            
+            # Execute the worker
+            self.threadpool.start(worker)
     
-    def add_folder_to_playlist(self, folder_path):
+    def handle_worker_error(self, error_msg):
+        print(f"Worker error: {error_msg}")
+        self.show_status_message(f"Error: {error_msg}", 5000)
+    
+    def scan_folder_for_audio(self, folder_path):
         audio_files = []
         dir = QDir(folder_path)
         
@@ -410,18 +309,75 @@ class MediaPlayer(QMainWindow):
         for file_info in file_list:
             audio_files.append(file_info.absoluteFilePath())
         
+        return audio_files
+    
+    def process_folder_scan_result(self, audio_files):
         if audio_files:
             self.add_to_playlist(audio_files)
-            if len(self.playlist) == len(audio_files):  # If these were the first tracks
+            self.show_status_message(f"Added {len(audio_files)} tracks to playlist")
+            if self.current_track_index == -1:  # If no track is currently selected
                 self.play_track(0)
+        else:
+            self.show_status_message("No audio files found in folder", 5000)
+    
+    def folder_scan_finished(self):
+        pass  # No dialog to close
     
     def add_to_playlist(self, file_paths):
-        for file_path in file_paths:
+        # For small number of files, process directly without dialog
+        if len(file_paths) <= 50:
+            processed_files = []
+            for file_path in file_paths:
+                file_info = QUrl.fromLocalFile(file_path)
+                file_name = os.path.basename(file_path)
+                processed_files.append({"url": file_info, "name": file_name, "path": file_path})
+            
+            self.update_playlist_with_processed_files(processed_files)
+        else:
+            # Only show progress dialog for large number of files
+            self.progress_dialog = QProgressDialog("Adding files to playlist...", "Cancel", 0, len(file_paths), self)
+            self.progress_dialog.setWindowTitle("Adding Files")
+            self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            self.progress_dialog.setMinimumDuration(500)  # Show after 500ms
+            self.progress_dialog.setValue(0)
+            
+            # Create worker for adding files
+            worker = FileProcessorWorker(file_paths)
+            worker.signals.result.connect(self.update_playlist_with_processed_files)
+            worker.signals.progress.connect(self.update_add_files_progress)
+            worker.signals.finished.connect(self.add_files_finished)
+            worker.signals.error.connect(self.handle_worker_error)
+            
+            # Execute the worker
+            self.threadpool.start(worker)
+    
+    def process_files_for_playlist(self, file_paths):
+        processed_files = []
+        for i, file_path in enumerate(file_paths):
             file_info = QUrl.fromLocalFile(file_path)
             file_name = os.path.basename(file_path)
             
-            self.playlist.append({"url": file_info, "name": file_name, "path": file_path})
-            self.playlist_widget.addItem(file_name)
+            processed_files.append({"url": file_info, "name": file_name, "path": file_path})
+            
+            # Не пытаемся отправлять сигналы прогресса здесь,
+            # так как у MediaPlayer нет атрибута signals
+        
+        return processed_files
+    
+    def update_add_files_progress(self, value):
+        if self.progress_dialog and self.progress_dialog.isVisible():
+            self.progress_dialog.setValue(value)
+    
+    def update_playlist_with_processed_files(self, processed_files):
+        # Add the processed files to the playlist
+        for file_data in processed_files:
+            self.playlist.append(file_data)
+            self.playlist_widget.addItem(file_data["name"])
+    
+    def add_files_finished(self):
+        if self.progress_dialog:
+            self.progress_dialog.close()
+            self.progress_dialog = None
     
     def clear_playlist(self):
         self.stop()
@@ -438,6 +394,8 @@ class MediaPlayer(QMainWindow):
         self.total_time_label.setText("00:00")
         self.position_slider.setValue(0)
         self.position_slider.setRange(0, 0)
+        
+        self.show_status_message("Playlist cleared")
     
     def playlist_item_double_clicked(self, index):
         self.play_track(index.row())
@@ -471,21 +429,32 @@ class MediaPlayer(QMainWindow):
     def toggle_play(self):
         if not self.playlist:
             # If playlist is empty, don't try to play anything
+            self.show_status_message("No tracks in playlist")
             return
             
         if self.media_player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.media_player.pause()
+            self.show_status_message("Paused")
         else:
-            self.media_player.play()
+            # If no track is currently selected (current_track_index == -1),
+            # start playing the first track in the playlist
+            if self.current_track_index == -1 and self.playlist:
+                self.play_track(0)
+            else:
+                self.media_player.play()
+                self.show_status_message("Playing")
     
     def stop(self):
         self.media_player.stop()
+        if self.playlist:
+            self.show_status_message("Stopped")
     
     def set_position(self, position):
         self.media_player.setPosition(position)
     
     def set_volume(self, volume):
         self.audio_output.setVolume(volume / 100.0)
+        self.show_status_message(f"Volume: {volume}%", 1000)
     
     def position_changed(self, position):
         self.position_slider.setValue(position)

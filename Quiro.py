@@ -8,7 +8,13 @@ from PyQt6.QtCore import Qt, QUrl, QDir, QThread, pyqtSignal, QRunnable, QThread
 from PyQt6.QtGui import QIcon
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
-os.environ["QT_MEDIA_BACKEND"] = "gstreamer"
+# Явно указываем бэкенд для Windows
+if sys.platform.startswith("linux"):
+    os.environ["QT_MEDIA_BACKEND"] = "gstreamer"
+elif sys.platform.startswith("darwin"):
+    os.environ["QT_MEDIA_BACKEND"] = "avfoundation"
+else: #if windows
+    os.environ["QT_MEDIA_BACKEND"] = "windows"  # Явно указываем Windows бэкенд
 
 # Worker signal class for thread communication
 class WorkerSignals(QObject):

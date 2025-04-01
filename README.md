@@ -15,7 +15,7 @@ Quiro is a modern, lightweight audio player built with PyQt6. It features a clea
 
 ## Installation
 ### Prerequisites
-Make sure you have Python 3.6+ installed on your system.
+Make sure you have Python 3.9+ installed on your system.
 
 ### Setup
 Clone the repository:
@@ -39,7 +39,8 @@ You can build a standalone executable using PyInstaller:
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --windowed --icon=Quiro.png Quiro.py
+pyinstaller --onefile --icon=Quiro.png Quiro.py
+#Then put Quiro.png and styles.qss next to Quiro binary (dist/Quiro)
 ```
 
 **Note:** `--onefile` creates a single executable file (portable), `--windowed` removes the console window, and `--icon` sets the application icon.

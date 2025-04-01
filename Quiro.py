@@ -8,6 +8,8 @@ from PyQt6.QtCore import Qt, QUrl, QDir, QThread, pyqtSignal, QRunnable, QThread
 from PyQt6.QtGui import QIcon
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 
+os.environ["QT_MEDIA_BACKEND"] = "gstreamer"
+
 # Worker signal class for thread communication
 class WorkerSignals(QObject):
     finished = pyqtSignal()
@@ -240,6 +242,11 @@ class MediaPlayer(QMainWindow):
         
         # Load stylesheet
         self.load_stylesheet()
+
+        self.media_player.errorOccurred.connect(self.handle_media_error)
+
+    def handle_media_error(self, error, error_msg):
+        self.show_status_message(f" Error: {error_msg}", 5000)
 
     def load_stylesheet(self):
         try:

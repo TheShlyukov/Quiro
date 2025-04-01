@@ -21,7 +21,7 @@ Make sure you have Python 3.9+ installed on your system.
 Clone the repository:
 ```bash
 git clone https://github.com/TheShlyukov/Quiro
-cd quiro
+cd Quiro-main
 ```
 
 Install the required dependencies:

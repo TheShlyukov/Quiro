@@ -43,7 +43,7 @@ pyinstaller --onefile --icon=Quiro.png Quiro.py
 #Then put Quiro.png and styles.qss next to Quiro binary (dist/Quiro)
 ```
 
-**Note:** `--onefile` creates a single executable file (portable), `--windowed` removes the console window, and `--icon` sets the application icon.
+**Note:** `--windowed` removes the console window, and `--icon` sets the application icon.
 
 The executable will be created in the `dist` directory.
 

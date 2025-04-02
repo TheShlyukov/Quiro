@@ -12,6 +12,7 @@ Quiro is a modern, lightweight audio player built with PyQt6. It features a clea
 * Volume control
 * Seeking through tracks
 * Time display
+* view metadata, such as Album and Artis name, year and Artwork
 
 ## Installation
 ### Prerequisites

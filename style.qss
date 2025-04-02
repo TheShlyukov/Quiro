@@ -107,6 +107,33 @@ QSlider::handle:horizontal:hover {
     padding: 10px;
 }
 
+/* Metadata labels */
+#metadataLabel {
+    color: #cccccc;
+    font-family: 'Arial';
+    font-size: 12px;
+    padding: 2px 10px;
+}
+
+/* Debug label */
+#debugLabel {
+    color: #00a651;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    padding: 5px;
+    background-color: #333333;
+    border-radius: 3px;
+}
+
+/* Album cover styling */
+#coverLabel {
+    background-color: #333333;
+    border: 1px solid #555555;
+    border-radius: 5px;
+    padding: 2px;
+    margin: 10px;
+}
+
 /* Playlist styling */
 #playlistWidget {
     background-color: #333333;
@@ -199,22 +226,17 @@ QToolTip {
     padding: 5px;
 }
 
-/* Progress dialog styling */
-QProgressDialog {
-    background-color: #2b2b2b;
-    color: white;
-    border: 1px solid #555555;
+/* Metadata container styling */
+#metadataContainer {
+    background-color: #333333;
+    border-radius: 4px;
+    padding: 5px;
+    margin: 5px 0;
 }
 
-QProgressDialog QProgressBar {
-    border: 1px solid #0078d7;
-    border-radius: 5px;
-    text-align: center;
-    color: white;
-}
-
-QProgressDialog QProgressBar::chunk {
-    background-color: #0078d7;
-    width: 10px;
-    margin: 0.5px;
+#metadataLabel {
+    color: #cccccc;
+    font-family: 'Arial';
+    font-size: 12px;
+    padding: 2px 5px;
 }
